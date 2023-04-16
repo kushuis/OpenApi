@@ -1,0 +1,8 @@
+server:
+  port: 8123
+  servlet:
+    context-path: /api
+kuapi:
+  client:
+    access-key: kushui
+    secret-key: abcdefgh
