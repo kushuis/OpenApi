@@ -47,6 +47,7 @@ public class KuApiClient {
         return result;
     }
 
+    //将accessKey和secretKey封装到map中
     private Map<String, String> getHeaderMap(String body) {
         Map<String, String> hashMap = new HashMap<>();
         hashMap.put("accessKey", accessKey);
