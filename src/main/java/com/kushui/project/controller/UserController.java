@@ -3,6 +3,7 @@ package com.kushui.project.controller;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.plugins.pagination.PageDTO;
+import com.kushui.kuapicommon.util.JwtUtil;
 import com.kushui.project.common.BaseResponse;
 import com.kushui.project.common.DeleteRequest;
 import com.kushui.project.common.ErrorCode;
@@ -65,7 +66,7 @@ public class UserController {
      * @return
      */
     @PostMapping("/login")
-    public BaseResponse<User> userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletRequest request) {
+    public BaseResponse<String> userLogin(@RequestBody UserLoginRequest userLoginRequest, HttpServletRequest request) {
         if (userLoginRequest == null) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
@@ -75,7 +76,9 @@ public class UserController {
             throw new BusinessException(ErrorCode.PARAMS_ERROR);
         }
         User user = userService.userLogin(userAccount, userPassword, request);
-        return ResultUtils.success(user);
+        String token = JwtUtil.createToken(user.getId(), user.getUserName());
+        //登陆成功返回token
+        return ResultUtils.success(token);
     }
 
     /**
