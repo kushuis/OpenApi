@@ -59,7 +59,10 @@ public class User implements Serializable {
      * 签名 secretKey
      */
     private String secretKey;
-
+    /**
+     * 手机号 phone
+     */
+    private String phone;
     /**
      * 创建时间
      */

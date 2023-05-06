@@ -46,3 +46,12 @@ dubbo:
   registry:
     id: nacos-registry
     address: nacos://localhost:8848
+
+
+aliyun:
+  sms:
+    regionId: default
+    accessKeyId: LTAI5tMji7Ubr3Qk868aeGVW
+    secret: F5oRXVl2sQYTEw61NloJbiKoUZxzfK
+
+

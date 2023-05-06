@@ -33,7 +33,7 @@ public class LoginCheckFilter implements Filter {
         String[] urls = new String[]{"/api/user/login",
                                 "/api/user/logout",
                             "/api/user/**",
-                            "/api/interfaceInfo/**"};
+                            "/api/interfaceInfo/**","/api/login/**","/api/**"};
         //判断一个请求是否要拦截
         boolean check = check(urls, requestURI);
         if (check){

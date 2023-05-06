@@ -10,12 +10,16 @@ import com.kushui.project.common.ErrorCode;
 import com.kushui.project.common.ResultUtils;
 import com.kushui.project.model.dto.user.*;
 import com.kushui.project.model.vo.UserVO;
+import com.kushui.project.service.MsmService;
 import com.kushui.project.service.UserService;
 import com.kushui.project.exception.BusinessException;
 import com.kushui.project.model.dto.user.*;
 import com.kushui.kuapicommon.model.entity.User;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
@@ -30,10 +34,17 @@ import java.util.stream.Collectors;
  */
 @RestController
 @RequestMapping("/user")
+@Slf4j
 public class UserController {
 
     @Resource
     private UserService userService;
+
+    @Resource
+    private MsmService msmService;
+
+    @Resource
+    private RedisTemplate<String,String> redisTemplate;
 
     // region 登录相关
 
@@ -72,14 +83,28 @@ public class UserController {
         }
         String userAccount = userLoginRequest.getUserAccount();
         String userPassword = userLoginRequest.getUserPassword();
-        if (StringUtils.isAnyBlank(userAccount, userPassword)) {
-            throw new BusinessException(ErrorCode.PARAMS_ERROR);
+        String mobile = userLoginRequest.getMobile();
+        String captcha= userLoginRequest.getCaptcha();
+        if (userAccount != null && userPassword != null) {
+            //账号密码登陆
+            if (StringUtils.isAnyBlank(userAccount, userPassword)) {
+                throw new BusinessException(ErrorCode.PARAMS_ERROR);
+            }
+            User user = userService.userLogin(userAccount, userPassword, request);
+            String token = JwtUtil.createToken(user.getId(), user.getUserName());
+            //登陆成功返回token
+            return ResultUtils.success(token);
+        } else {
+            //手机号登陆
+            BaseResponse<String> response = msmService.login(mobile,captcha, request);
+            log.info("======手机号登陆成功======");
+            return  response;
         }
-        User user = userService.userLogin(userAccount, userPassword, request);
-        String token = JwtUtil.createToken(user.getId(), user.getUserName());
-        //登陆成功返回token
-        return ResultUtils.success(token);
+
     }
+
+
+
 
     /**
      * 用户注销
