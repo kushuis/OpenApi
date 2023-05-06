@@ -96,8 +96,12 @@ public class UserController {
         } else if(!StringUtils.isEmpty(mobile) && !StringUtils.isEmpty(captcha)){
             //手机号登陆
             BaseResponse<String> response = msmService.login(mobile,captcha, request);
-            log.info("======手机号登陆成功======");
-            return  response;
+            if(response.getCode() == PARAMS_ERROR.getCode()){
+                log.info("=======登陆失败======");
+            }else{
+                log.info("======手机号登陆成功======");
+            }
+            return response;
         }
         return ResultUtils.error(PARAMS_ERROR);
 
