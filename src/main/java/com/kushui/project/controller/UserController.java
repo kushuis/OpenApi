@@ -85,16 +85,13 @@ public class UserController {
         String userPassword = userLoginRequest.getUserPassword();
         String mobile = userLoginRequest.getMobile();
         String captcha= userLoginRequest.getCaptcha();
-        if (userAccount != null && userPassword != null) {
+        if (!StringUtils.isEmpty(userAccount) && !StringUtils.isEmpty(userPassword)) {
             //账号密码登陆
-            if (StringUtils.isAnyBlank(userAccount, userPassword)) {
-                throw new BusinessException(ErrorCode.PARAMS_ERROR);
-            }
             User user = userService.userLogin(userAccount, userPassword, request);
             String token = JwtUtil.createToken(user.getId(), user.getUserName());
             //登陆成功返回token
             return ResultUtils.success(token);
-        } else {
+        } else if(!StringUtils.isEmpty(mobile) && !StringUtils.isEmpty(captcha)){
             //手机号登陆
             BaseResponse<String> response = msmService.login(mobile,captcha, request);
             log.info("======手机号登陆成功======");
