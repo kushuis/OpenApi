@@ -8,6 +8,7 @@ import com.kushui.project.service.UserInterfaceInfoService;
 import com.kushui.project.exception.BusinessException;
 import com.kushui.kuapicommon.model.entity.UserInterfaceInfo;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  *
@@ -33,6 +34,7 @@ public class UserInterfaceInfoServiceImpl extends ServiceImpl<UserInterfaceInfoM
     }
 
     @Override
+    @Transactional(rollbackFor = BusinessException.class)
     public boolean invokeCount(long interfaceInfoId, long userId) {
         // 判断
         if (interfaceInfoId <= 0 || userId <= 0) {
