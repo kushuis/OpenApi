@@ -10,6 +10,13 @@ spring:
           uri: http://localhost:8123
           predicates:
             - Path=/api/**
+#          filters:
+#            - name: RequestRateLimiter
+#              args:
+#                key-resolver: '#{@ipKeyResolver}'
+#                redis-rate-limiter.replenishRate: 1
+#                redis-rate-limiter.burstCapacity: 3
+
 #        - id: add_request_header_route
 #          uri: http://localhost:8123
 #          predicates:
@@ -25,12 +32,18 @@ spring:
 #          uri: https://kushui.icu
 #          predicates:
 #            - Path=/fallback
+#logging:
+#  level:
+#    org:
+#      springframework:
+#        cloud:
+#          gateway: trace
+
 logging:
+  pattern:
+    console: "%d{yyyy/MM/dd-HH:mm:ss} [%thread] %-5level %logger- %msg%n"
   level:
-    org:
-      springframework:
-        cloud:
-          gateway: trace
+      root: info
 dubbo:
   application:
     name: dubbo-springboot-demo-provider

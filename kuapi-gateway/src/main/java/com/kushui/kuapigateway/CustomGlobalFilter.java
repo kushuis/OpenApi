@@ -6,9 +6,12 @@ import com.kushui.kuapicommon.model.entity.User;
 import com.kushui.kuapicommon.service.InnerInterfaceInfoService;
 import com.kushui.kuapicommon.service.InnerUserInterfaceInfoService;
 import com.kushui.kuapicommon.service.InnerUserService;
+
 import lombok.extern.slf4j.Slf4j;
 import org.apache.dubbo.config.annotation.DubboReference;
 import org.reactivestreams.Publisher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -33,7 +36,7 @@ import java.util.List;
 /**
  * 全局过滤
  */
-@Slf4j
+//@Slf4j
 @Component
 public class CustomGlobalFilter implements GlobalFilter, Ordered {
 
@@ -49,6 +52,8 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
     private static final List<String> IP_WHITE_LIST = Arrays.asList("127.0.0.1");
 
     private static final String INTERFACE_HOST = "http://localhost:8123";
+
+    private static final Logger log = LoggerFactory.getLogger("kafka-event");
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -111,9 +116,10 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
         try {
             interfaceInfo = innerInterfaceInfoService.getInterfaceInfo(path, method);
         } catch (Exception e) {
-            log.error("getInterfaceInfo error", e);
+           log.error("getInterfaceInfo error", e);
         }
         if (interfaceInfo == null) {
+            log.info("通过远程调用查询接口不存在");
             return handleNoAuth(response);
         }
         // todo 是否还有调用次数
@@ -144,7 +150,7 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
                     // 等调用完转发的接口后才会执行
                     @Override
                     public Mono<Void> writeWith(Publisher<? extends DataBuffer> body) {
-                        log.info("body instanceof Flux: {}", (body instanceof Flux));
+                       log.info("body instanceof Flux: {}", (body instanceof Flux));
                         if (body instanceof Flux) {
                             Flux<? extends DataBuffer> fluxBody = Flux.from(body);
                             // 往返回值里写数据
