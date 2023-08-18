@@ -31,7 +31,6 @@ public class KafkaAppender<E> extends AppenderBase<E> {
 
         this.producer = new KafkaProducer<>(props);
 
-
     }
 
     @Override
