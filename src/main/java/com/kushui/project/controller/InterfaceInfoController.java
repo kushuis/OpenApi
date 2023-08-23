@@ -24,6 +24,8 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.annotation.Resource;
 import javax.servlet.http.HttpServletRequest;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.util.List;
 
 /**
@@ -201,7 +203,7 @@ public class InterfaceInfoController {
     // endregion
 
     /**
-     * 发布
+     * 发布接口
      *
      * @param idRequest
      * @param request
@@ -220,13 +222,20 @@ public class InterfaceInfoController {
         if (oldInterfaceInfo == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
         }
+
         // 判断该接口是否可以调用
-        com.kushui.kuapiclientsdk.model.User user = new com.kushui.kuapiclientsdk.model.User();
-        user.setUsername("test");
-        String username = kuApiClient.getUsernameByPost(user);
-        if (StringUtils.isBlank(username)) {
-            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "接口验证失败");
+        User loginUser = userService.getLoginUser(request);
+        String accessKey = loginUser.getAccessKey();
+        String secretKey = loginUser.getSecretKey();
+
+        Object res = invokeInterfaceInfo(oldInterfaceInfo.getSdk(), oldInterfaceInfo.getName(), oldInterfaceInfo.getParameterExample(), accessKey, secretKey);
+        if (res == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
         }
+        if (res.toString().contains("Error request")) {
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "系统接口内部异常");
+        }
+
         // 仅本人或管理员可修改
         InterfaceInfo interfaceInfo = new InterfaceInfo();
         interfaceInfo.setId(id);
@@ -236,7 +245,7 @@ public class InterfaceInfoController {
     }
 
     /**
-     * 下线
+     * 下线接口
      *
      * @param idRequest
      * @param request
@@ -264,7 +273,7 @@ public class InterfaceInfoController {
     }
 
     /**
-     * 测试调用
+     * 调用接口
      *
      * @param interfaceInfoInvokeRequest
      * @param request
@@ -279,21 +288,69 @@ public class InterfaceInfoController {
         long id = interfaceInfoInvokeRequest.getId();
         String userRequestParams = interfaceInfoInvokeRequest.getUserRequestParams();
         // 判断是否存在
-        InterfaceInfo oldInterfaceInfo = interfaceInfoService.getById(id);
-        if (oldInterfaceInfo == null) {
+        InterfaceInfo interfaceInfo = interfaceInfoService.getById(id);
+        if (interfaceInfo == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
         }
-        if (oldInterfaceInfo.getStatus() == InterfaceInfoStatusEnum.OFFLINE.getValue()) {
+        if (interfaceInfo.getStatus() == InterfaceInfoStatusEnum.OFFLINE.getValue()) {
             throw new BusinessException(ErrorCode.PARAMS_ERROR, "接口已关闭");
         }
         User loginUser = userService.getLoginUser(request);
         String accessKey = loginUser.getAccessKey();
         String secretKey = loginUser.getSecretKey();
-        KuApiClient tempClient = new KuApiClient(accessKey, secretKey);
-        Gson gson = new Gson();
-        com.kushui.kuapiclientsdk.model.User user = gson.fromJson(userRequestParams, com.kushui.kuapiclientsdk.model.User.class);
-        String usernameByPost = tempClient.getUsernameByPost(user);
-        return ResultUtils.success(usernameByPost);
+
+//        KuApiClient tempClient = new KuApiClient(accessKey, secretKey);
+//        Gson gson = new Gson();
+//        com.kushui.kuapiclientsdk.model.User user = gson.fromJson(userRequestParams, com.kushui.kuapiclientsdk.model.User.class);
+//        String usernameByPost = tempClient.getUsernameByPost(user);
+
+        //3.发起接口调用
+        String requestParams= interfaceInfoInvokeRequest.getUserRequestParams();
+        Object res = invokeInterfaceInfo(interfaceInfo.getSdk(), interfaceInfo.getName(), requestParams, accessKey, secretKey);
+        if (res == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND_ERROR);
+        }
+        if (res.toString().contains("Error request")) {
+            throw new BusinessException(ErrorCode.OPERATION_ERROR, "调用错误，请检查参数和接口调用次数！");
+        }
+
+        return ResultUtils.success(res);
     }
 
+
+    /**
+     * 反射测试接口
+     *
+     */
+    private Object invokeInterfaceInfo(String classPath, String methodName, String userRequestParams,
+                                       String accessKey, String secretKey) {
+        try {
+            Class<?> clientClazz = Class.forName(classPath);
+            // 1. 获取构造器，参数为ak,sk
+            Constructor<?> binApiClientConstructor = clientClazz.getConstructor(String.class, String.class);
+            // 2. 构造出客户端
+            Object apiClient =  binApiClientConstructor.newInstance(accessKey, secretKey);
+
+            // 3. 找到要调用的方法
+            Method[] methods = clientClazz.getMethods();
+            for (Method method : methods) {
+                if (method.getName().equals(methodName)) {
+                    // 3.1 获取参数类型列表
+                    Class<?>[] parameterTypes = method.getParameterTypes();
+                    if (parameterTypes.length == 0) {
+                        // 如果没有参数，直接调用
+                        return method.invoke(apiClient);
+                    }
+                    Gson gson = new Gson();
+                    // 构造参数
+                    Object parameter = gson.fromJson(userRequestParams, parameterTypes[0]);
+                    return method.invoke(apiClient, parameter);
+                }
+            }
+            return null;
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new BusinessException(ErrorCode.SYSTEM_ERROR, "找不到调用的方法!! 请检查你的请求参数是否正确!");
+        }
+    }
 }

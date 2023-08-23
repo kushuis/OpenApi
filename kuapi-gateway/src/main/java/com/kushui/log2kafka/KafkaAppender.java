@@ -33,7 +33,7 @@ public class KafkaAppender<E> extends AppenderBase<E> {
 
     }
 
-    @Override
+    @Override   
     public void stop() {
 
         super.stop();

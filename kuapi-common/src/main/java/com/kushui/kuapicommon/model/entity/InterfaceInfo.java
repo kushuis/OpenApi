@@ -68,6 +68,16 @@ public class InterfaceInfo implements Serializable {
     private Long userId;
 
     /**
+     * 接口对应的sdk
+     */
+    private String sdk;
+
+    /**
+     * 请求参数示例
+     */
+    private String parameterExample;
+
+    /**
      * 创建时间
      */
     private Date createTime;

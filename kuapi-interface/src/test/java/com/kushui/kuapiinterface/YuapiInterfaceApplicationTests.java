@@ -10,17 +10,19 @@ import javax.annotation.Resource;
 @SpringBootTest
 class YuapiInterfaceApplicationTests {
 
-    @Resource
-    private KuApiClient kuApiClient;
+//    @Resource
+//    private KuApiClient kuApiClient;
 
     @Test
     void contextLoads() {
-        String result = kuApiClient.getNameByGet("kushui");
+        KuApiClient kuApiClient =  new KuApiClient("72ff6bf8f0bafef0a90833e9410ae45a","ed4e3acfb4e6359e80fbb57bff120379");
         User user = new User();
         user.setUsername("likushui");
-        String usernameByPost = kuApiClient.getUsernameByPost(user);
+
+        String result = kuApiClient.getUsernameByPost(user);
+
         System.out.println(result);
-        System.out.println(usernameByPost);
+
     }
 
 }

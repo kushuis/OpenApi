@@ -55,19 +55,24 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
 
     private static final Logger log = LoggerFactory.getLogger("kafka-event");
 
+    private String id ;
+
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
         // 1. 请求日志
         ServerHttpRequest request = exchange.getRequest();
         String path = INTERFACE_HOST + request.getPath().value();
         String method = request.getMethod().toString();
-        log.info("请求唯一标识：" + request.getId());
-        log.info("请求路径：" + path);
-        log.info("请求方法：" + method);
-        log.info("请求参数：" + request.getQueryParams());
+        this.id = request.getId();
+        log.info( "请求路径：" + path+"\n" +"请求方法：" + method
+                +"\n" +"请求参数：" + request.getQueryParams() +"\n" +"请求来源地址：" + request.getRemoteAddress()
+                +"\n" + "请求唯一标识：" + request.getId());
+//        log.info("请求路径：" + path);
+//        log.info("请求方法：" + method);
+//        log.info("请求参数：" + request.getQueryParams());
         String sourceAddress = request.getLocalAddress().getHostString();
-        log.info("请求来源地址：" + sourceAddress);
-        log.info("请求来源地址：" + request.getRemoteAddress());
+//        log.info("请求来源地址：" + sourceAddress);
+//        log.info("请求来源地址：" + request.getRemoteAddress());
         ServerHttpResponse response = exchange.getResponse();
         // 2. 访问控制 - 黑白名单
         if (!IP_WHITE_LIST.contains(sourceAddress)) {
@@ -88,7 +93,7 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
         try {
             invokeUser = innerUserService.getInvokeUser(accessKey);
         } catch (Exception e) {
-            log.error("getInvokeUser error", e);
+            log.error("getInvokeUser error"+"请求唯一标识：" + request.getId(), e);
         }
         if (invokeUser == null) {
             return handleNoAuth(response);
@@ -116,10 +121,10 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
         try {
             interfaceInfo = innerInterfaceInfoService.getInterfaceInfo(path, method);
         } catch (Exception e) {
-           log.error("getInterfaceInfo error", e);
+           log.error("getInterfaceInfo error"+"请求唯一标识：" + request.getId(), e);
         }
         if (interfaceInfo == null) {
-            log.info("通过远程调用查询接口不存在");
+            log.info("通过远程调用查询接口不存在"+"请求唯一标识：" + request.getId());
             return handleNoAuth(response);
         }
         // todo 是否还有调用次数
@@ -150,7 +155,7 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
                     // 等调用完转发的接口后才会执行
                     @Override
                     public Mono<Void> writeWith(Publisher<? extends DataBuffer> body) {
-                       log.info("body instanceof Flux: {}", (body instanceof Flux));
+//                       log.info("body instanceof Flux: {}", (body instanceof Flux));
                         if (body instanceof Flux) {
                             Flux<? extends DataBuffer> fluxBody = Flux.from(body);
                             // 往返回值里写数据
@@ -173,7 +178,7 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
                                         String data = new String(content, StandardCharsets.UTF_8); //data
                                         sb2.append(data);
                                         // 打印日志
-                                        log.info("响应结果：" + data);
+                                        log.info("响应结果：" + data +"\n" + "请求唯一标识：" + id);
                                         return bufferFactory.wrap(content);
                                     }));
                         } else {
