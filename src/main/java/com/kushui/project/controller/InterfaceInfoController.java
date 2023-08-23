@@ -299,10 +299,6 @@ public class InterfaceInfoController {
         String accessKey = loginUser.getAccessKey();
         String secretKey = loginUser.getSecretKey();
 
-//        KuApiClient tempClient = new KuApiClient(accessKey, secretKey);
-//        Gson gson = new Gson();
-//        com.kushui.kuapiclientsdk.model.User user = gson.fromJson(userRequestParams, com.kushui.kuapiclientsdk.model.User.class);
-//        String usernameByPost = tempClient.getUsernameByPost(user);
 
         //3.发起接口调用
         String requestParams= interfaceInfoInvokeRequest.getUserRequestParams();

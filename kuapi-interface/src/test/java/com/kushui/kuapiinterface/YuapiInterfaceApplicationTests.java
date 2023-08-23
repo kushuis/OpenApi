@@ -10,6 +10,7 @@ import javax.annotation.Resource;
 @SpringBootTest
 class YuapiInterfaceApplicationTests {
 
+    //这里在yaml配置文件中配置ak，sk就可以直接使用，不用下面直接new的方式了
 //    @Resource
 //    private KuApiClient kuApiClient;
 
