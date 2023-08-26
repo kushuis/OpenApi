@@ -38,6 +38,17 @@ spring:
 #      springframework:
 #        cloud:
 #          gateway: trace
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+
+  redis:
+    database: 2
+    host: localhost
+    port: 6379
+    timeout: 5000
 
 logging:
   pattern:

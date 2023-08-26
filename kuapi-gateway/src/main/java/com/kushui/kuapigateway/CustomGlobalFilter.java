@@ -3,15 +3,17 @@ package com.kushui.kuapigateway;
 import com.kushui.kuapiclientsdk.utils.SignUtils;
 import com.kushui.kuapicommon.model.entity.InterfaceInfo;
 import com.kushui.kuapicommon.model.entity.User;
+import com.kushui.kuapicommon.model.vo.UserInterfaceInfoMessage;
 import com.kushui.kuapicommon.service.InnerInterfaceInfoService;
 import com.kushui.kuapicommon.service.InnerUserInterfaceInfoService;
 import com.kushui.kuapicommon.service.InnerUserService;
 
-import lombok.extern.slf4j.Slf4j;
+import com.kushui.kuapigateway.manager.RedisLimiterManager;
 import org.apache.dubbo.config.annotation.DubboReference;
 import org.reactivestreams.Publisher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.cloud.gateway.filter.GatewayFilterChain;
 import org.springframework.cloud.gateway.filter.GlobalFilter;
 import org.springframework.core.Ordered;
@@ -28,10 +30,14 @@ import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import javax.annotation.Resource;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+
+import static com.kushui.kuapicommon.model.constant.RabbitmqConstant.EXCHANGE_INTERFACE_CONSISTENT;
+import static com.kushui.kuapicommon.model.constant.RabbitmqConstant.ROUTING_KEY_INTERFACE_CONSISTENT;
 
 /**
  * 全局过滤
@@ -49,13 +55,19 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
     @DubboReference
     private InnerUserInterfaceInfoService innerUserInterfaceInfoService;
 
+    @Resource
+    private RabbitTemplate rabbitTemplate;
+
+    @Resource
+    private RedisLimiterManager redisLimiterManager;
+
     private static final List<String> IP_WHITE_LIST = Arrays.asList("127.0.0.1");
 
     private static final String INTERFACE_HOST = "http://localhost:8123";
 
     private static final Logger log = LoggerFactory.getLogger("kafka-event");
 
-    private String id ;
+    private String id;
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
@@ -64,9 +76,9 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
         String path = INTERFACE_HOST + request.getPath().value();
         String method = request.getMethod().toString();
         this.id = request.getId();
-        log.info( "请求路径：" + path+"\n" +"请求方法：" + method
-                +"\n" +"请求参数：" + request.getQueryParams() +"\n" +"请求来源地址：" + request.getRemoteAddress()
-                +"\n" + "请求唯一标识：" + request.getId());
+        log.info("请求路径：" + path + "\n" + "请求方法：" + method
+                + "\n" + "请求参数：" + request.getQueryParams() + "\n" + "请求来源地址：" + request.getRemoteAddress()
+                + "\n" + "请求唯一标识：" + request.getId());
 //        log.info("请求路径：" + path);
 //        log.info("请求方法：" + method);
 //        log.info("请求参数：" + request.getQueryParams());
@@ -93,7 +105,7 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
         try {
             invokeUser = innerUserService.getInvokeUser(accessKey);
         } catch (Exception e) {
-            log.error("getInvokeUser error"+"请求唯一标识：" + request.getId(), e);
+            log.error("getInvokeUser error" + "请求唯一标识：" + request.getId(), e);
         }
         if (invokeUser == null) {
             return handleNoAuth(response);
@@ -121,13 +133,24 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
         try {
             interfaceInfo = innerInterfaceInfoService.getInterfaceInfo(path, method);
         } catch (Exception e) {
-           log.error("getInterfaceInfo error"+"请求唯一标识：" + request.getId(), e);
+            log.error("getInterfaceInfo error" + "请求唯一标识：" + request.getId(), e);
         }
         if (interfaceInfo == null) {
-            log.info("通过远程调用查询接口不存在"+"请求唯一标识：" + request.getId());
+            log.info("通过远程调用查询接口不存在" + "请求唯一标识：" + request.getId());
             return handleNoAuth(response);
         }
-        // todo 是否还有调用次数
+        //根据不同用户使用令牌桶限流
+        redisLimiterManager.doRateLimit("api_" + invokeUser.getId());
+
+        // 查询调用次数，并且调用次数+1，并使用乐观锁保证这两步的原子性
+        boolean result = innerUserInterfaceInfoService.invokeCount(interfaceInfo.getId(), invokeUser.getId());
+
+        if (!result){
+            log.error("接口调用次数不足或接口繁忙");
+            return handleNoAuth(response);
+        }
+
+
         // 5. 请求转发，调用模拟接口 + 响应日志
         //        Mono<Void> filter = chain.filter(exchange);
         //        return filter;
@@ -162,9 +185,14 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
                             // 拼接字符串
                             return super.writeWith(
                                     fluxBody.map(dataBuffer -> {
-                                        // 7. 调用成功，接口调用次数 + 1 invokeCount
+                                        // 7.接口调用失败，利用消息队列实现接口统计数据的回滚；因为消息队列的可靠性所以我们选择消息队列而不是远程调用来实现
                                         try {
-                                            innerUserInterfaceInfoService.invokeCount(interfaceInfoId, userId);
+//                                            innerUserInterfaceInfoService.invokeCount(interfaceInfoId, userId);
+                                            if (!(originalResponse.getStatusCode() == HttpStatus.OK)){
+                                                UserInterfaceInfoMessage vo = new UserInterfaceInfoMessage(userId,interfaceInfoId);
+                                                rabbitTemplate.convertAndSend(EXCHANGE_INTERFACE_CONSISTENT, ROUTING_KEY_INTERFACE_CONSISTENT,vo);
+                                            }
+
                                         } catch (Exception e) {
                                             log.error("invokeCount error", e);
                                         }
@@ -178,7 +206,7 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
                                         String data = new String(content, StandardCharsets.UTF_8); //data
                                         sb2.append(data);
                                         // 打印日志
-                                        log.info("响应结果：" + data +"\n" + "请求唯一标识：" + id);
+                                        log.info("响应结果：" + data + "\n" + "请求唯一标识：" + id);
                                         return bufferFactory.wrap(content);
                                     }));
                         } else {

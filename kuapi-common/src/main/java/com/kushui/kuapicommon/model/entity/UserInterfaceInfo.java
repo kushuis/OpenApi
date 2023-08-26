@@ -60,6 +60,11 @@ public class UserInterfaceInfo implements Serializable {
     @TableLogic
     private Integer isDelete;
 
+    /**
+     * 乐观锁版本号
+     */
+    private Integer version;
+
     @TableField(exist = false)
     private static final long serialVersionUID = 1L;
 }
