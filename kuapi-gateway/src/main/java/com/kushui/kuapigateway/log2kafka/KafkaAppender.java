@@ -1,4 +1,4 @@
-package com.kushui.log2kafka;
+package com.kushui.kuapigateway.log2kafka;
 
 import ch.qos.logback.core.AppenderBase;
 import ch.qos.logback.core.Layout;

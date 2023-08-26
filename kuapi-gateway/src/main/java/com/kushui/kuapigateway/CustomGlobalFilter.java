@@ -188,6 +188,8 @@ public class CustomGlobalFilter implements GlobalFilter, Ordered {
                         return super.writeWith(body);
                     }
                 };
+
+
                 // 设置 response 对象为装饰过的，调用成功返回
                 return chain.filter(exchange.mutate().response(decoratedResponse).build());
             }

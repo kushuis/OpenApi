@@ -1,4 +1,4 @@
-package com.kushui.log2kafka;
+package com.kushui.kuapigateway.log2kafka;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
